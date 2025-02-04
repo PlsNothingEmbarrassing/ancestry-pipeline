@@ -1,0 +1,317 @@
+---
+title: "PCA_ASSESSMENT"
+format: html
+---
+
+### Load libraries
+
+```{r}
+library(ggplot2)
+library(readr)
+library(tidyverse)
+library(plotly)
+library(RColorBrewer)
+# Set wd
+setwd("E:/Bioinformatics/PCA_ASSESSMENT/")
+```
+
+### Import Eigenvector data
+
+```{r}
+eigenvec <- read_table(
+  "E:/Bioinformatics/PCA_ASSESSMENT/combined.eigenvec",
+  col_names = c("FID", "IID", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10"), # Specify the exact names
+  col_types = cols(FID = col_character(), IDD = col_character()) # Use specific column types if needed
+)
+
+eigenvec <- eigenvec %>%
+  mutate(IID = as.character(IID))
+eigenvec
+```
+
+### Import Eigenvals
+
+```{r}
+
+eigenval <- read_csv(
+  "E:/Bioinformatics/PCA_ASSESSMENT/combined.eigenval",
+  col_names = c("Eigenvalue") # Assign the name "Eigenvalue"
+)
+eigenval
+```
+
+### Calculate variance
+
+```{r}
+
+var_explained <- eigenval$Eigenvalue / sum(eigenval$Eigenvalue) * 100
+cum_var <- cumsum(var_explained)
+```
+
+### Create data for plotting
+
+```{r}
+scree_data <- tibble(
+  PC = 1:length(eigenval$Eigenvalue),
+  VarianceExplained = var_explained,
+  CumulativeVariance = cum_var
+)
+scree_data
+```
+
+### Generate Scree plot
+
+```{r}
+p <- ggplot(scree_data, aes(x = PC)) +
+  geom_point(aes(y = VarianceExplained), size = 3, color = "blue") +
+  geom_line(aes(y = VarianceExplained), color = "blue", linetype = "solid") +
+  geom_point(aes(y = CumulativeVariance), size = 3, color = "red") +
+  geom_line(aes(y = CumulativeVariance), color = "red", linetype = "dashed") +
+  geom_hline(yintercept = 80, linetype = "dotted", color = "gray") +
+  labs(
+    title = "Scree Plot",
+    x = "Principal Component",
+    y = "Variance Explained (%)"
+  ) +
+  scale_color_brewer(palette = "Dark2") +
+  theme_minimal()
+
+int_plot <- ggplotly(p)
+int_plot
+```
+
+### Merge pop, superpop and eigenvectors
+
+```{r}
+pop_file <- read_table("E:/Bioinformatics/PCA_ASSESSMENT/all-1000g-phase3-chrall-mac5-v2.population", 
+    col_names = c("FID", "IID", "Population"))
+
+superpop_file <- read_table("E:/Bioinformatics/PCA_ASSESSMENT/all-1000g-phase3-chrall-mac5-v2.super-population", 
+    col_names = c("FID", "IID", "Superpopulation"))
+merged_pop_file <- full_join(pop_file, superpop_file)
+
+
+
+merged_data <- eigenvec %>%
+  left_join(merged_pop_file, by = "FID") %>%
+  mutate(
+    Population = if_else(is.na(Population), "unknown", Population),
+    Superpopulation = if_else(is.na(Superpopulation), "unknown", Superpopulation),
+  ) %>%
+  select(-IID.y) %>%  # Remove the redundant IID.y column
+  rename(IID = IID.x)  # Rename IID.x to IID
+    
+
+merged_data
+```
+
+### Create 2-way Scatter plots
+
+```{r}
+ggplot(merged_data, aes(x = PC2, y = PC1, color = Superpopulation)) +
+  geom_point(size = 3) +
+  scale_color_brewer(palette = "Dark2") +
+  labs(
+    title = "PC2 vs PC1 (Colored by Superpopulation)",
+    x = "PC2",
+    y = "PC1"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
+
+```{r}
+# Plot PC2 vs PC3 colored by Superpopulation
+ggplot(merged_data, aes(x = PC2, y = PC3, color = Superpopulation)) +
+  geom_point(size = 3) +
+  scale_color_brewer(palette = "Dark2") +
+  labs(
+    title = "PC2 vs PC3 (Colored by Superpopulation)",
+    x = "PC2",
+    y = "PC3"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
+
+```{r}
+ggplot(merged_data, aes(x = PC1, y = PC3, color = Superpopulation)) +
+  geom_point(size = 3) +
+  scale_color_brewer(palette = "Dark2") +
+  labs(
+    title = "PC1 vs PC3 (Colored by Superpopulation)",
+    x = "PC1",
+    y = "PC3"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
+
+```{r}
+ggplot(merged_data, aes(x = PC1, y = PC2, color = Superpopulation)) +
+  geom_point(size = 3) +
+  scale_color_brewer(palette = "Dark2") +
+  labs(
+    title = "PC2 vs PC3 (Colored by Superpopulation)",
+    x = "PC2",
+    y = "PC3"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
+
+```{r}
+
+p <- ggplot(merged_data, aes(x = PC1, y = PC2, color = Population, alpha=(Population == "GBR"))) +
+  geom_point(size = 3) +
+  scale_alpha_manual(values = c(0.3, 1)) +
+  labs(
+    title = "PC2 vs PC3 (Colored by population)",
+    x = "PC2",
+    y = "PC3"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+p
+```
+
+### Calculate mean and SD for each PC
+
+```{r}
+ref_pca_stats <- merged_data %>%
+  filter(Population != "unknown") %>%
+  select(starts_with("PC")) %>%
+  summarise(across(everything(), list(mean = ~mean(.), sd = ~sd(.))))
+gbr_like_pca_stats <- merged_data %>%
+  filter(Population == "GBR") %>%
+  select(starts_with("PC")) %>%
+  summarise(across(everything(), list(mean = ~mean(.), sd = ~sd(.))))
+
+gbr_like_pca_stats
+```
+
+### Define clustering thresholds
+
+```{r}
+# Only use first 3 PCs as those explain most variance in data
+# Within 2 sd
+k <- 2
+thresholds <- tibble(
+  PC1_mean_lower = gbr_like_pca_stats$PC1_mean - k * gbr_like_pca_stats$PC1_sd,
+  PC1_mean_upper = gbr_like_pca_stats$PC1_mean + k * gbr_like_pca_stats$PC1_sd,
+  PC2_mean_lower = gbr_like_pca_stats$PC2_mean - k * gbr_like_pca_stats$PC2_sd,
+  PC2_mean_upper = gbr_like_pca_stats$PC2_mean + k * gbr_like_pca_stats$PC2_sd,
+  PC3_mean_lower = gbr_like_pca_stats$PC3_mean - k * gbr_like_pca_stats$PC3_sd,
+  PC3_mean_upper = gbr_like_pca_stats$PC3_mean + k * gbr_like_pca_stats$PC3_sd,
+)
+thresholds
+```
+
+### Identify individuals in test group who fall within thresholds
+
+```{r}
+eigenvec <- eigenvec %>%
+  rowwise() %>%
+  mutate(
+    cluster_status = ifelse(
+      (PC1 >= thresholds$PC1_mean_lower & PC1 <= thresholds$PC1_mean_upper) &
+      (PC2 >= thresholds$PC2_mean_lower & PC2 <= thresholds$PC2_mean_upper) &
+      (PC3 >= thresholds$PC3_mean_lower & PC3 <= thresholds$PC3_mean_upper),
+      "GBR-like", "Other"
+    )
+  )
+
+
+gbr_like_individuals <- eigenvec %>%
+  filter(cluster_status == "GBR-like")
+
+gbr_like_individuals
+eigenvec
+```
+
+### See how many individuals incorrectly identified as GBR in reference dataset
+
+```{r}
+merged_data <- left_join(merged_data, select(eigenvec, FID, cluster_status), by = "FID")
+ref_data <- merged_data %>%
+  filter(Population != "unknown")
+ref_data
+```
+
+```{r}
+pop_gbr_count <- ref_data %>%
+  filter(Population == "GBR") %>%
+  nrow()
+pop_gbr_count
+identified_gbr_count <- ref_data %>%
+  filter(cluster_status == "GBR-like")
+identified_gbr_count
+```
+
+```{r}
+ggplot(eigenvec, aes(x = PC1, y = PC2, color = cluster_status)) +
+  geom_point(alpha = 0.6, size = 3) +  # Scatter plot of individuals
+  stat_ellipse(data = eigenvec %>% filter(cluster_status== "GBR-like"),
+               aes(x=PC1, y=PC2),
+               level = 0.95,
+               color="blue", linewidth=1, linetype="dashed"
+    ) +
+  scale_color_manual(values = c("GBR-like" = "blue", "Other" = "gray")) +
+  theme_minimal() +
+  labs(title = "PCA Clustering with GBR 2-SD Threshold",
+       x = "PC1", y = "PC2", color = "Cluster Status")
+```
+
+### 3 dim data gives an excuse to create a 3d plot
+
+```{r}
+library(rgl)
+library(car)
+
+fig <- plot_ly(eigenvec,
+        x=~PC1, y=~PC2, z=~PC3,
+        color = ~cluster_status,
+        colors = c("GBR-like"= "blue", "Other" = "grey"),
+        type = "scatter3d",
+        mode="markers") %>%
+  layout(title= "PCA plot",
+         scene=list(
+           xaxis=list(title="PC1"),
+           yaxis=list(title="PC2"),
+           zaxis=list(title="PC3")
+         ))
+htmlwidgets::saveWidget(fig, "3dPCAplot.html")
+```
+
+```{r}
+merged_data_ref <- merged_data %>%
+  filter(Population != "unknown")
+merged_data_ref
+```
+
+```{r}
+test_gbr_like <- gbr_like_individuals %>%
+  anti_join(merged_data_ref, by='FID')
+test_gbr_like
+
+test_gbr_keep <- test_gbr_like[1:2]
+write.table(test_gbr_keep,
+            file = "test_gbr.keep",
+            col.names = F,
+            row.names = F,
+            quote = F,
+            sep = " ")
+```
+
+```{r}
+gbr_females <- read_table("test_gbr_female.sexcheck", col_names = c("FID", "IID", "PEDSEX", "SNPSEX", "STATUS", "F"))
+female_ids <- gbr_females$FID
+
+gbr_females_pca <- test_gbr_like %>% filter(FID %in% female_ids)
+
+gbr_males_pca <- test_gbr_like %>% filter(!FID %in% female_ids)
+
+gbr_males_pca
+gbr_females_pca
+```
