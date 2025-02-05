@@ -1,0 +1,54 @@
+# Evaluate sex data
+
+```{r}
+library(ggplot2)
+library(readr)
+library(dplyr)
+
+setwd("E:/Bioinformatics/PCA_ASSESSMENT/")
+```
+
+```{r}
+# Read in sex data for gbr test pop
+sex_data <- read_table("test_gbr_sexcheck.sexcheck")
+gbr_females <- read_table("test_gbr_female.sexcheck", col_names = c("FID", "IID", "PEDSEX", "SNPSEX", "STATUS", "F"))
+females_keep <- gbr_females %>%
+  select
+write.table(females_keep,
+            file = "test_females_gbr.keep",
+            col.names = F,
+            row.names = F,
+            quote = F,
+            sep = )
+females_keep
+sex_data
+gbr_females
+```
+
+```{r}
+ggplot(sex_data, aes(x = SNPSEX)) +
+  geom_bar(fill = "lightblue") +
+  labs(title = "Sex Distribution", x = "Sex", y = "Count")
+```
+
+```{r}
+# make pedsex factor for plotting
+sex_data$PEDSEX <- factor(sex_data$PEDSEX, levels = c(1, 2), labels = c("Male", "Female"))
+
+# Plot histogram with different colors for each sex
+ggplot(sex_data, aes(x=F, fill=PEDSEX)) +
+  geom_histogram(bins=30, alpha=0.6, position="identity") +
+  geom_vline(xintercept=0, color="red", linetype="dashed", size=1.2) +
+  geom_vline(xintercept=1, color="green", linetype="dashed", size=1.2) +
+  theme_minimal() +
+  scale_fill_manual(values = c("Male" = "blue", "Female" = "pink")) + # Custom colors
+  labs(title="X Chromosome Heterozygosity",
+       x="F-statistic (Heterozygosity)",
+       y="Count",
+       fill="Reported Sex (PEDSEX)")
+
+
+```
+
+```{}
+```
