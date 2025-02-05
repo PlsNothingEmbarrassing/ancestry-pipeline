@@ -44,7 +44,7 @@ if [ -z "$TEST" ] || [ -z "$REFERENCE" ] || [ -z "$HIGHLD" ] || [ -z "$OUTDIR" ]
     usage
 fi
 
-
+#module load plink/2.0
 module load plink/1.9
 # limit to snps in both datasets
 echo "awking snps"
@@ -64,7 +64,7 @@ comm -12  \
 echo "Number of snps in common: $(wc -l < "${OUTDIR}/common_to_both.extract")"
 
 # limit to commons snps
-# Use plink to extract common snps from ref dataset
+# Use plink2 to extract common snps from ref dataset
 # Use --extract flag to specify snps to keep
 plink \
 --bfile "${REFERENCE}" \
@@ -72,7 +72,7 @@ plink \
 --make-bed \
 --out "${OUTDIR}/reference_common"
 
-
+echo "Number of snps in common with MAF > 0.05: $(wc -l < "${OUTDIR}/reference_common.bim")"
 
 # Use plink to extract common snps from in the new ref dataset
 # Use maf flag to specify minor allele frequency
@@ -81,7 +81,7 @@ plink \
 --maf 0.05 \
 --make-bed \
 --out "${OUTDIR}/reference_common_maf5"
-echo "Number of snps in common with MAF > 0.05: $(wc -l < "${OUTDIR}/reference_common_maf5.bim")"
+
 
 # Remove ambiguous snps
 # Check if the snp is ambiguous
@@ -91,7 +91,7 @@ awk \
 "${OUTDIR}/reference_common_maf5.bim" | cut -f 2 > "${OUTDIR}/ambiguous.exclude"
 
 
-# Use plink to exclude ambiguous snps from the ref dataset
+# Use plink2 to exclude ambiguous snps from the ref dataset
 plink \
 --bfile "${OUTDIR}/reference_common_maf5" \
 --exclude "${OUTDIR}/ambiguous.exclude" \
