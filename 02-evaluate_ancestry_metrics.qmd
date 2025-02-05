@@ -179,10 +179,6 @@ p
 ### Calculate mean and SD for each PC
 
 ```{r}
-ref_pca_stats <- merged_data %>%
-  filter(Population != "unknown") %>%
-  select(starts_with("PC")) %>%
-  summarise(across(everything(), list(mean = ~mean(.), sd = ~sd(.))))
 gbr_like_pca_stats <- merged_data %>%
   filter(Population == "GBR") %>%
   select(starts_with("PC")) %>%
@@ -222,7 +218,7 @@ eigenvec <- eigenvec %>%
     )
   )
 
-
+# keep copy of all "gbr-like"
 gbr_like_individuals <- eigenvec %>%
   filter(cluster_status == "GBR-like")
 
@@ -302,16 +298,4 @@ write.table(test_gbr_keep,
             row.names = F,
             quote = F,
             sep = " ")
-```
-
-```{r}
-gbr_females <- read_table("test_gbr_female.sexcheck", col_names = c("FID", "IID", "PEDSEX", "SNPSEX", "STATUS", "F"))
-female_ids <- gbr_females$FID
-
-gbr_females_pca <- test_gbr_like %>% filter(FID %in% female_ids)
-
-gbr_males_pca <- test_gbr_like %>% filter(!FID %in% female_ids)
-
-gbr_males_pca
-gbr_females_pca
 ```
